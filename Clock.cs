@@ -1,3 +1,5 @@
+namespace Clock;
+
 using System;
 using System.Diagnostics;
 using System.Drawing;
@@ -7,21 +9,23 @@ using System.IO;
 using System.Runtime.InteropServices;
 using System.Windows.Forms;
 
-namespace Clock;
-
 internal struct IconDir {
-#pragma warning disable IDE0051 // must be zero.
+    public IconDir () { }
+    // must be zero.
+#pragma warning disable IDE0051
 #pragma warning disable CS0414
     private readonly ushort zero = 0;
-#pragma warning restore CS0414 
+#pragma warning restore CS0414
 #pragma warning restore IDE0051
     public ushort type;
     public ushort count;
 }
 
 internal struct IconDirEntry {
+    public IconDirEntry () { }
     public byte width, height, colorCount;
-#pragma warning disable IDE0051 // must be zero.
+    // must be zero.
+#pragma warning disable IDE0051
 #pragma warning disable CS0414
     private readonly byte zero = 0;
 #pragma warning restore CS0414
@@ -31,6 +35,7 @@ internal struct IconDirEntry {
 }
 
 internal class Clock {
+
 #if DEBUG
     static Clock () {
         Debug.Assert(Marshal.SizeOf<IconDir>() == 3 * sizeof(ushort));
@@ -68,34 +73,34 @@ internal class Clock {
     }
 
     private static byte[] BitmapToBytes (Bitmap source) {
-        using (var data = new MemoryStream()) {
-            source.Save(data, ImageFormat.Png);
-            return data.ToArray();
-        }
+        using MemoryStream data = new();
+        source.Save(data, ImageFormat.Png);
+        return data.ToArray();
     }
 
     private static Icon FromBitmap (Bitmap source) {
         Debug.Assert(source.Width <= byte.MaxValue && source.Height <= byte.MaxValue);
         var bytes = BitmapToBytes(source);
-        using (var data = new MemoryStream()) {
-            var iconDirectory = new IconDir() { count = 1, type = 1 };
-            StructToStream(iconDirectory, data);
-            var directoryEntry = new IconDirEntry() { bitsPerPixel = 32, colorCount = 0, width = (byte)source.Width, height = (byte)source.Height, dataOffset = 22, colorPlanes = 1, byteCount = (uint)bytes.Length };
-            StructToStream(directoryEntry, data);
-            data.Write(bytes, 0, bytes.Length);
-            data.Position = 0;
-            return new Icon(data);
-        }
+        using MemoryStream data = new();
+        IconDir iconDirectory = new() { count = 1, type = 1 };
+        StructToStream(iconDirectory, data);
+        IconDirEntry directoryEntry = new() { bitsPerPixel = 32, colorCount = 0, width = (byte)source.Width, height = (byte)source.Height, dataOffset = 22, colorPlanes = 1, byteCount = (uint)bytes.Length };
+        StructToStream(directoryEntry, data);
+        data.Write(bytes, 0, bytes.Length);
+        data.Position = 0;
+        return new Icon(data);
     }
 
     private const string fontData = "iVBORw0KGgoAAAANSUhEUgAAAEYAAAAHCAYAAAC1KjtNAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAAB4SURBVEhL7dXBDoAgDANQ8f//Gdellxk6CajhwDsxmi07SCzVHEIxPAZZT4/W3NmZr1MLZYvOZMAyYDQ0V/GBhmXASGYnz9uNPyX1abfuARmPS/hkT9WcDUUGLLtlPU8ZsAzUPXiTYRmoe0C2n5Lw+19ppZm6r9YL2IibkIeRAU8AAAAASUVORK5CYII=";
     private readonly Timer timer;
     private readonly Bitmap temporaryBitmap;
     private readonly Bitmap[] digits = new Bitmap[10];
-    private readonly Rectangle firstDigit = new(0, 1, 7, 15), secondDigit = new(9, 1, 7, 15);
+    private readonly Rectangle firstDigit = new(0, 1, 7, 15);
+    private readonly Rectangle secondDigit = new(9, 1, 7, 15);
     private readonly NotifyIcon hourMinuteIcon, secondIcon;
     private int currentSeconds = -1;
     private DateTime lastDate;
+
     [STAThread]
     private static void Main () {
         _ = new Clock();
@@ -109,20 +114,25 @@ internal class Clock {
 
         temporaryBitmap = new(16, 16, PixelFormat.Format32bppArgb);
 
-        using (var data = new MemoryStream(Convert.FromBase64String(fontData)))
-        using (var font = new Bitmap(data))
-            SeparateDigits(font);
+        if (File.Exists("font.png")) {
+            using (var font = new Bitmap("font.png"))
+                SeparateDigits(font);
+        } else {
+            using (var data = new MemoryStream(Convert.FromBase64String(fontData)))
+            using (var font = new Bitmap(data))
+                SeparateDigits(font);
+        }
 
         timer = new() { Interval = 250, Enabled = true };
         timer.Tick += Tick_timer;
     }
 
     private void SeparateDigits (Bitmap font) {
-        var target = new Rectangle(0, 0, 7, 7);
+        Rectangle target = new(0, 0, 7, 7);
         for (var i = 0; i < 10; i++) {
             digits[i] = new(7, 7, PixelFormat.Format32bppArgb);
-            using (var graphics = Graphics.FromImage(digits[i]))
-                graphics.DrawImage(font, target, new(7 * i, 0, 7, 7), GraphicsUnit.Pixel);
+            using var graphics = Graphics.FromImage(digits[i]);
+            graphics.DrawImage(font, target, new(7 * i, 0, 7, 7), GraphicsUnit.Pixel);
         }
     }
 
@@ -156,10 +166,9 @@ internal class Clock {
     }
 
     private Icon ForSeconds (int seconds) {
-        using (var graphics = NearestNeighborGraphicsFromImage(temporaryBitmap)) {
-            graphics.DrawImage(digits[seconds / 10], firstDigit);
-            graphics.DrawImage(digits[seconds % 10], secondDigit);
-        }
+        using var graphics = NearestNeighborGraphicsFromImage(temporaryBitmap);
+        graphics.DrawImage(digits[seconds / 10], firstDigit);
+        graphics.DrawImage(digits[seconds % 10], secondDigit);
         return FromBitmap(temporaryBitmap);
     }
 
