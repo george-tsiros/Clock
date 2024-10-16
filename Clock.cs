@@ -114,8 +114,10 @@ internal class Clock {
 
         temporaryBitmap = new(16, 16, PixelFormat.Format32bppArgb);
 
-        if (File.Exists("font.png")) {
-            using (var font = new Bitmap("font.png"))
+        var fontLocation = Path.Combine(Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().Location), "font.png");
+
+        if (File.Exists(fontLocation)) {
+            using (var font = new Bitmap(fontLocation))
                 SeparateDigits(font);
         } else {
             using (var data = new MemoryStream(Convert.FromBase64String(fontData)))
